@@ -1,4 +1,4 @@
-module przen
+module github.com/sparkoo/przen
 
 go 1.13
 
