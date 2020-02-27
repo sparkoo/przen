@@ -43,7 +43,7 @@ func main() {
     for _, comment := range comments {
         //log.Printf("%+v", comment)
         if *comment.User.Login == conf.spammerUsername {
-            log.Printf("comment [%d] to delete", *comment.ID)
+            log.Printf("comment [%d] by [%s] to delete", *comment.ID, *comment.User.Login)
             toDelete = append(toDelete, *comment.ID)
         }
     }
