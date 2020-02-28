@@ -9,6 +9,8 @@ import (
     "golang.org/x/oauth2"
     "log"
     "os"
+    "strconv"
+    "strings"
 )
 
 type conf struct {
@@ -25,56 +27,118 @@ func main() {
     client := ghClient(conf)
     defer printRateLimit(client)
 
-    if pr, _, err := client.PullRequests.Get(context.Background(), conf.org, conf.repo, conf.prId); err != nil {
-        log.Fatal(err)
-    } else {
-        //log.Printf("%+v", *pr.User)
-        if *pr.User.Login != conf.username {
-            log.Printf("username [%s] and author [%s] names dont match", *pr.User.Login, conf.username)
-            log.Fatal("sorry, you can delete only comments on your own PRs")
-        } else {
-            log.Printf("usernames matches ok [%s]", conf.username)
-        }
+    ensurePrId(client, conf)
+    prConfirm(client, conf)
+    toDelete := listComments(client, conf)
+    deleteComments(client, conf, toDelete)
+}
 
-        //log.Printf("%+v", pr)
-        fmt.Printf("[#%d - %s (%s)]\n", *pr.Number, *pr.Title, *pr.User.Login)
-        fmt.Printf("[%s]\n", *pr.HTMLURL)
-
-        confirm(client)
+func deleteComments(client *github.Client, conf *conf, toDelete []int64) {
+    if len(toDelete) <= 0 {
+        fmt.Printf("nothing to delete here ...\n")
+        printRateLimit(client)
+        os.Exit(0)
     }
 
+    fmt.Printf("%d comments to delete\n", len(toDelete))
+    confirm(client)
+    for _, commentId := range toDelete {
+        fmt.Printf("about to delete comment [%d] ... ", commentId)
+        if _, deleteErr := client.Issues.DeleteComment(context.Background(), conf.org, conf.repo, commentId); deleteErr != nil {
+            fmt.Print("fail\n")
+            log.Fatal(deleteErr)
+        } else {
+            fmt.Print("ok\n")
+        }
+    }
+    fmt.Println()
+}
+
+func listComments(client *github.Client, conf *conf) []int64{
     comments, _, err := client.Issues.ListComments(context.Background(), conf.org, conf.repo, conf.prId, &github.IssueListCommentsOptions{ListOptions: github.ListOptions{PerPage: 100}})
     if err != nil {
         log.Fatal(err)
     }
 
+    fmt.Println()
     toDelete := make([]int64, 0)
     for _, comment := range comments {
-        //log.Printf("%+v", comment)
+        //fmt.Printf("%+v", comment)
         if *comment.User.Login == conf.spammer {
-            log.Printf("comment [%d] by [%s] to delete", *comment.ID, *comment.User.Login)
+            fmt.Printf("comment [%d] by [%s] to delete\n", *comment.ID, *comment.User.Login)
             toDelete = append(toDelete, *comment.ID)
         }
     }
+    return toDelete
+}
 
-    log.Printf("[%d] comments to delete", len(toDelete))
-    confirm(client)
-    for _, commentId := range toDelete {
-        log.Printf("about to delete comment [%d] ...", commentId)
-        if _, deleteErr := client.Issues.DeleteComment(context.Background(), conf.org, conf.repo, commentId); deleteErr != nil {
-            log.Fatal(deleteErr)
+func prConfirm(client *github.Client, conf *conf) {
+    fmt.Printf("checking if username [%s] matches ... ", conf.username)
+    if pr, _, err := client.PullRequests.Get(context.Background(), conf.org, conf.repo, conf.prId); err != nil {
+        log.Fatal(err)
+    } else {
+        //fmt.Printf("%+v", *pr.User)
+        if *pr.User.Login != conf.username {
+            fmt.Printf("username [%s] and author [%s] names dont match", *pr.User.Login, conf.username)
+            log.Fatal("sorry, you can delete only comments on your own PRs")
         } else {
-            log.Print("ok")
+            fmt.Printf("ok\n")
+        }
+
+        //fmt.Printf("%+v", pr)
+        fmt.Printf("\n(#%d) %s\n", *pr.Number, *pr.Title)
+        fmt.Printf("%s\n", *pr.HTMLURL)
+
+        confirm(client)
+    }
+}
+
+func ensurePrId(client *github.Client, conf *conf) {
+    fmt.Println()
+    if conf.prId == 0 {
+        fmt.Printf("listing %s's PRs ... ", conf.username)
+        usersPRs := listUsersPRs(client, conf)
+        fmt.Println("ok")
+        fmt.Println()
+        for i, pr := range usersPRs {
+            fmt.Printf("%d] (#%d) %s \n", i, *pr.Number, *pr.Title)
+        }
+        reader := bufio.NewReader(os.Stdin)
+        fmt.Printf("choose PR: ")
+        text, _ := reader.ReadString('\n')
+        if prI, converr := strconv.Atoi(strings.Trim(text, "\n")); converr != nil {
+            log.Fatal(converr)
+        } else {
+            conf.prId = *usersPRs[prI].Number
+        }
+        fmt.Println()
+    }
+}
+
+func listUsersPRs(client *github.Client, c *conf) []github.PullRequest {
+    prs, _, err := client.PullRequests.List(context.Background(), c.org, c.repo, &github.PullRequestListOptions{
+        ListOptions: github.ListOptions{
+            PerPage: 1000,
+        },
+    })
+    usersPRs := make([]github.PullRequest, 0)
+    for _, pr := range prs {
+        if *pr.User.Login == c.username {
+            usersPRs = append(usersPRs, *pr)
         }
     }
-
+    if err != nil {
+        log.Fatal(err)
+    }
+    return usersPRs
 }
 
 func printRateLimit(client *github.Client) {
+    fmt.Println("\nlisting github rates:")
     if rates, _, err := client.RateLimits(context.Background()); err != nil {
         log.Fatal(err)
     } else {
-        log.Printf("%+v", rates)
+        fmt.Printf("%+v\n", rates)
     }
 }
 
@@ -111,10 +175,11 @@ func parseArgs() *conf {
 
     flag.Parse()
 
-    log.Printf("%+v", *conf)
+    fmt.Printf("%+v\n", *conf)
 
     if conf.username == "" {
         if username, ok := os.LookupEnv("GITHUB_USERNAME"); ok {
+            fmt.Println("found github username from GITHUB_USERNAME env")
             conf.username = username
         } else {
             log.Fatal("username must be set")
@@ -123,14 +188,15 @@ func parseArgs() *conf {
 
     if conf.token == "" {
         if token, ok := os.LookupEnv("GITHUB_TOKEN"); ok {
+            fmt.Println("found github token from GITHUB_TOKEN env")
             conf.token = token
         } else {
             log.Fatal("github token must be set")
         }
     }
 
-    if conf.username == "" || conf.prId == 0 || conf.spammer == "" || conf.token == "" {
-        log.Println("invalid args. usage:")
+    if conf.username == "" || conf.spammer == "" || conf.token == "" {
+        fmt.Println("invalid args. usage:")
         flag.Usage()
         os.Exit(1)
     }
