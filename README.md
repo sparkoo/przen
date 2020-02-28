@@ -2,6 +2,7 @@
 
 Have your PullRequest clean from annoying spamming bot comments.
 
+```
 Usage of ./przen:
   -org string
         name of the orgianization/user of the PR
@@ -15,3 +16,4 @@ Usage of ./przen:
         github token, can be set with GITHUB_TOKEN env var
   -username string
         your github username, can be set with GITHUB_USERNAME env variable
+```
