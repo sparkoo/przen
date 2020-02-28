@@ -1,6 +1,6 @@
 # PullRequest ZEN (przen)
 
-Have your PullRequest clean from annoying spamming bot comments.
+Have your PullRequest clean from annoying spamming bot comments to feel like in a Zen garden.
 
 Download latest: https://github.com/sparkoo/przen/releases/latest/download/przen
 
