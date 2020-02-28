@@ -3,6 +3,7 @@
 Have your PullRequest clean from annoying spamming bot comments.
 
 Download latest: https://github.com/sparkoo/przen/releases/latest/download/przen
+
 Latest release: https://github.com/sparkoo/przen/releases/latest
 
 ```
