@@ -111,7 +111,7 @@ func parseArgs() *conf {
 
     flag.Parse()
 
-    fmt.Printf("%+v\n", *conf)
+    log.Printf("%+v", *conf)
 
     if conf.username == "" {
         if username, ok := os.LookupEnv("GITHUB_USERNAME"); ok {
@@ -130,7 +130,9 @@ func parseArgs() *conf {
     }
 
     if conf.username == "" || conf.prId == 0 || conf.spammer == "" || conf.token == "" {
-        log.Fatal("You must define all params. Use `--help`.")
+        log.Println("invalid args. usage:")
+        flag.Usage()
+        os.Exit(1)
     }
 
     return conf
