@@ -5,7 +5,7 @@ import (
     "context"
     "flag"
     "fmt"
-    "github.com/google/go-github/v29/github"
+    "github.com/google/go-github/v38/github"
     "golang.org/x/oauth2"
     "log"
     "os"
