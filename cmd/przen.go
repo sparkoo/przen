@@ -100,6 +100,10 @@ func ensurePrId(client *github.Client, conf *conf) {
         usersPRs := listUsersPRs(client, conf)
         fmt.Println("ok")
         fmt.Println()
+        if len(usersPRs) == 0 {
+            fmt.Printf("No open PRs ...\n")
+            os.Exit(0)
+        }
         for i, pr := range usersPRs {
             fmt.Printf("%d] (#%d) %s \n", i, *pr.Number, *pr.Title)
         }
